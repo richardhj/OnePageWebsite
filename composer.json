@@ -1,0 +1,36 @@
+{
+  "name": "timgatzky/onepagewebsite",
+  "description": "Contao extension: Create a one page website structure with regular pages",
+  "keywords": [
+    "contao",
+    "onepagewebsite",
+    "one-page-website",
+    "onepage"
+  ],
+  "type": "contao-module",
+  "homepage": "https://github.com/timgatzky/OnePageWebsite",
+  "license": "LGPL-3.0+",
+  "authors": [
+    {
+      "name": "Tim Gatzky",
+      "homepage": "http://www.tim-gatzky.de",
+      "role": "Interaction-Designer,Developer"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/timgatzky/OnePageWebsite/issues",
+    "source": "https://github.com/timgatzky/OnePageWebsite"
+  },
+  "require": {
+    "php": "^5.3 || ^7.0",
+    "contao/core": "^3.0",
+    "contao-community-alliance/composer-installer": "*"
+  },
+  "extra": {
+    "contao": {
+      "sources": {
+        "system/modules/onepagewebsite": "system/modules/onepagewebsite"
+      }
+    }
+  }
+}

@@ -10,21 +10,22 @@
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation, either
  * version 3 of the License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program. If not, please visit the Free
  * Software Foundation website at <http://www.gnu.org/licenses/>.
  *
  * PHP version 5
- * @copyright  Tim Gatzky 2012 
+ *
+ * @copyright  Tim Gatzky 2012
  * @author     Tim Gatzky <info@tim-gatzky.de>
- * @package    OnePageWebsite 
- * @license    LGPL 
+ * @package    OnePageWebsite
+ * @license    LGPL
  * @filesource
  */
 
@@ -33,12 +34,15 @@
  */
 namespace OnePageWebsite;
 
-/**
- * Imports
- */
-use \Database;
-use \FrontendTemplate;
-use \ModuleArticle;
+use Contao\ArticleModel;
+use Contao\Controller;
+use Contao\Database;
+use Contao\FrontendTemplate;
+use Contao\LayoutModel;
+use Contao\Model;
+use Contao\ModuleArticle;
+use Contao\PageModel;
+
 
 /**
  * core class OnePageWebsite
@@ -46,516 +50,443 @@ use \ModuleArticle;
  */
 class OnePageWebsite
 {
-	protected $arrPageData = array();
-	protected $arrPages = array();
-	
-	public function __set($strKey, $varValue)
-	{
-		switch($strKey)
-		{
-			case 'hardLimit':
-				$this->hardLimit = $varValue;
-				break;
-			case 'showLevel':
-				$this->showLevel = $varValue;
-				break;
-		}
-	}
-		
-	/**
-	 * Get page data / layout, replace article placeholders with articles and return as array with page id key
-	 * @param array
-	 * @return array
-	 */
-	protected function getPageData($arrPages)
-	{
-		$arrPageData = $this->getModulesInPageLayouts($arrPages);
-		
-		if(count($arrPageData) < 1)
-		{
-			return '';
-		}
-		
-		// insert articles in placeholders in modules array
-		foreach ($arrPageData as $pageId => $sections)
-		{
-			foreach($sections as $column => $itemList)
-			{
-				// replace article placeholders with articles
-				foreach($itemList as $index => $item)
-				{
-					if($item[0] == 'article_placeholder')
-					{
-						$arrArticles = $this->getArticles($pageId, $column);
-						array_insert($arrPageData[$pageId][$column],$index,$arrArticles);
-						
-						// delete placeholder
-						$newIndex = $index + count($arrArticles);
-						unset($arrPageData[$pageId][$column][$newIndex]);
-					}
-				}
-			}
-		}
-		
-		return $arrPageData;
-	}
-	
-	
-	/**
-	 * Shortcut to getPageData: returns just the data as array
-	 * @param integer
-	 * @return array
-	 */
-	protected function getSinglePageData($intPage)
-	{
-		$arrReturn = $this->getPageData(array($intPage));
-		return $arrReturn[$intPage];
-	}
-	
-	/**
-	 * Shortcut to generatePagesRecursiv
-	 * @param integer
-	 * @param integer
-	 * @return string
-	 */
-	public function generatePage($pid,$level,$strTemplate='')
-	{
-		#fix 4
-		return $this->generatePagesRecursiv($pid,$level,$strTemplate);
-	}
-		
-	/**
-	 * Render recursiv pages and return content as string
-	 * @param integer
-	 * @param integer
-	 * @return string
-	 */
-	public function generatePagesRecursiv($pid,$level=1,$strTemplate='')
-	{
-		global $objPage;
-		$time = time();
-		$level++;
-		
-		$strWhereP1="p1.published=1 AND p1.opw_hide!=1 AND p1.type='regular' AND (p1.start='' OR p1.start<".$time.") AND (p1.stop='' OR p1.stop>".$time.")";
-		$strWhereP2="p2.published=1 AND p2.opw_hide!=1 AND p2.type='regular' AND (p2.start='' OR p2.start<".$time.") AND (p2.stop='' OR p2.stop>".$time.")";
+    protected $pageData = [];
+    protected $pages    = [];
 
-		// fetch subpages
-		$objDatabase = \Database::getInstance();
-		$objSubpages = $objDatabase->prepare("SELECT p1.*, (SELECT COUNT(*) FROM tl_page p2 WHERE p2.pid=p1.id AND ".$strWhereP2.") AS subpages FROM tl_page p1 WHERE p1.pid=? AND ".$strWhereP1." ORDER BY p1.sorting")
-										->execute($pid);
-		
-		if($objSubpages->numRows < 1)
-		{
-			return '';
-		}
-		else if($this->hardLimit && $this->showLevel > 0 && $level > $this->showLevel)
-		{
-			return '';
-		}
-		
-		if($strTemplate == '')
-		{
-			$strTemplate = 'opw_default';
-		}
-		
-		$objTemplate = new \FrontendTemplate($strTemplate);
-		$objTemplate->type = get_class($this);
-		$objTemplate->level = 'level_' . $level;
-		
-		$items = array();
-		$count = 0;
-		
-		// walk subpages
-		while($objSubpages->next())
-		{
-			// Skip hidden sitemap pages
-			if ($this instanceof ModuleSitemap && $objSubpages->sitemap == 'map_never')
-			{
-				continue;
-			}
-			
-			$subpages = '';
-			
-			// do the same as the navigation here
-			if ($objSubpages->subpages > 0 && (!$this->showLevel || $this->showLevel >= $level || (!$this->hardLimit && ($objPage->id == $objSubpages->id || in_array($objPage->id, $this->getChildRecords($objSubpages->id, 'tl_page'))))))
-			{
-				#fix 4
-				$subpages = $this->generatePagesRecursiv($objSubpages->id, $level, $strTemplate);
-			}
-			
-			$strClass = ' page page_' . $count;
-			$strClass .= (($subpages != '') ? ' subpage' : '') . ($objSubpages->protected ? ' protected' : '') . (($objSubpages->cssClass != '') ? ' ' . $objSubpages->cssClass : '');
-			$strCssId = 'page'.$objSubpages->id;
-			
-			$items[] = array
-			(
-				'id'			=> $objSubpages->id,
-				'cssId'			=> 'id="'.$strCssId.'"',
-				'class'			=> trim($strClass),
-				'subpages'		=> $subpages,
-				'content'		=> $this->getSinglePageData($objSubpages->id),#$this->arrPageData[$objSubpages->id],
-				'row'			=> $objSubpages->row()
-			);
-			
-			$count++;
-		}
-		
-		if(empty($items))
-		{
-			return '';
-		}
-		
-		// add class first and last
-		$last = count($items) - 1;
-		$items[0]['class'] = trim($items[0]['class'] . ' first');
-		$items[$last]['class'] = trim($items[$last]['class'] . ' last');
-		
-	
-		// HOOK allow custom page data
-		if (isset($GLOBALS['TL_HOOKS']['ONE_PAGE_WEBSITE']['generatePage']) && count($GLOBALS['TL_HOOKS']['ONE_PAGE_WEBSITE']['generatePage']))
-		{
-			foreach ($GLOBALS['TL_HOOKS']['ONE_PAGE_WEBSITE']['generatePage'] as $callback)
-			{
-				$this->import($callback[0]);
-				$items = $this->$callback[0]->$callback[1]($items, $this);
-			}
-		}
-		
-		$objTemplate->entries = $items;
-				
-		// parse template
-		$strBuffer = '';
-		$strBuffer = $objTemplate->parse();
-		
-		return $strBuffer;
-	}
-	
-	
-	/**
-	 * Get ids of parent records and return as array
-	 * @param string
-	 * @param integer
-	 * @return array
-	 */
-	protected function getParentRecords($strTable, $intId)
-	{
-		$arrParent = array();
-		
-		$objDatabase = \Database::getInstance();
-		do
-		{
-			// Get the pid
-			$objParent = $objDatabase->prepare("SELECT pid FROM " . $strTable . " WHERE id=?")
-										->limit(1)
-										->execute($intId);
-	
-			if ($objParent->numRows < 1)
-			{
-				break;
-			}
-	
-			$intId = $objParent->pid;
-	
-			// store id
-			$arrParent[] = $intId;
-	
-		}
-		while ($intId);
-	
-		if (empty($arrParent))
-		{
-			return array();
-		}
-		
-		return $arrParent;
-	}
-	
-	/**
-	 * Get layout object
-	 * @param integer
-	 * @return object
-	 */
-	protected function getPageLayout($intPage)
-	{
-		// global page object
-		global $objPage;	
-		
-		$objDatabase = \Database::getInstance();
-		
-		// fix: #3 (select page layout from page id presented by function argument)
-		// fetch layout, either selected manually or by fallback (default layout) 
-		$objLayout = $objDatabase->prepare("SELECT * FROM tl_layout WHERE id=(SELECT layout FROM tl_page WHERE id=? AND includeLayout=1)")
-									->limit(1)
-									->execute($intPage);
-		
-		// fix: #1
-		// if neither one is available search parent pages for manually selected layouts
-		if($objLayout->numRows < 1)
-		{
-			// get parent ids
-			$arrParents = $this->getParentRecords('tl_page',$intPage);
-			
-			$tmp = array();
-			foreach($arrParents as $id)
-			{
-				if($id > 0 && $id != $objPage->rootId)
-				{
-					$tmp[] = $id;
-				}
-			}
-			$arrParents = $tmp;
-			unset($tmp);
-			
-			// move on to next page
-			if(count($arrParents) < 1)
-			{
-				continue;
-			}
-			
-			// walk parents backwards to find an inherited layout
-			$arrParents = array_reverse($arrParents);
-			
-			// fetch parent pages
-			$objParents = $objDatabase->prepare("SELECT * FROM tl_page WHERE id IN(".implode(',',$arrParents).")")
-							->execute();
-			if($objParents->numRows < 1)
-			{
-				continue;
-			}
-			
-			while($objParents->next())
-			{
-				$objLayout = $objDatabase->prepare("SELECT * FROM tl_layout WHERE id=(SELECT layout FROM tl_page WHERE id=? AND includeLayout=1)")
-									->limit(1)
-									->execute($objParents->id);
-				if($objLayout->numRows < 1)
-				{
-					// check next parent
-					continue;
-				}
-			}
-		}
-		
-		
-		// try fallback if no layout is selected or inherited to this page
-		if($objLayout->numRows < 1)
-		{
-			// no fallback in contao 3!!!
-			// fetch layout from root page, inherited in global page object
-			$objLayout = $objDatabase->prepare("SELECT * FROM tl_layout WHERE id=?")
-			   					->limit(1)
-			   					->execute($objPage->layout);
-			
-			if($objLayout->numRows < 1)
-			{
-			   throw new Exception($GLOBALS['TL_LANG']['ONEPAGEWEBSITE']['no_layout']);
-			}
-		}
-				
-		
-		return $objLayout;
-	}
-	
-	
-	
-	/**
-	 * Get modules included in pages and return as array with page id as key
-	 * @param array
-	 * @return array
-	 */
-	protected function getModulesInPageLayouts($arrPages)
-	{
-		if(!count($arrPages))
-		{
-			return array();
-		}
-		else if(!is_array($arrPages))
-		{
-			$arrPages = array($arrPages);
-		}
-		
-		// global page object
-		global $objPage;	
-		
-		// database object
-		$objDatabase = \Database::getInstance();
-		
-		// get Database Result object for all pages
-		$objPages = $objDatabase->execute("SELECT * FROM tl_page WHERE id IN(".implode(',',$arrPages).")");
-
-		if($objPages->numRows < 1)
-		{
-			return array();
-		}
-
-		// walk pages
-		while($objPages->next())
-		{
-			$objLayout = $this->getPageLayout($objPages->id);
-						
-			$index = $objPages->id;
-			while($objLayout->next())
-			{
-				foreach(deserialize($objLayout->modules) as $module)
-				{
-					$id = $module['mod'];
-					$col = $module['col'];
-
-					// make sure no modules of type one-page-website will be registered
-					$objModule = $objDatabase->prepare("SELECT * FROM tl_module WHERE id=? AND type NOT IN(?)")
-												->limit(1)
-												->execute($id, implode(',',array_keys($GLOBALS['FE_MOD']['onepagewebsite'])) );
-
-					if($id == 0 || $objModule->numRows < 1)
-					{
-						// add a placeholder for articles
-						$arrModules[$index][$col][] = array('article_placeholder', $col);
-						continue;
-					}
-					
-					#$strHtml = $this->getFrontendModule($module['mod'], $module['col']);
-					$strHtml = $this->replaceInsertTags('{{insert_module::'.$id.'}}');
-					
-					$arrModules[$index][$col][] = array
-					(
-						'id' 		=> $id,
-						'col'		=> $col,
-						'page'		=> $objPages->id,
-						'layout'	=> $objLayout->id,
-						'html'  	=> $strHtml,
-						'row'  		=> $objModule->row(),
-					);
-
-				}
-			}
-		}
-		
-		return $arrModules;
-	}
+    private $hardLimit;
+    private $showLevel;
 
 
-	/**
-	 * Get articles on pages and return as array with page id as key
-	 * @param array
-	 * @return array
-	 */
-	public function getArticles($arrPages,$strColumn='')
-	{
-		if(!is_array($arrPages))
-		{
-			$arrPages = array($arrPages);
-		}
+    /**
+     * Get page data / layout, replace article placeholders with articles and return as array with page id key
+     *
+     * @param array
+     *
+     * @return array
+     */
+    protected function getPageData(array $pages): array
+    {
+        $pageData = $this->getModulesInPageLayouts($pages);
 
-		$objDatabase = \Database::getInstance();
-		
-		$time = time();
-		$strWhere="published=1 AND (start='' OR start<".$time.") AND (stop='' OR stop>".$time.")" . ($strColumn ? " AND inColumn='".$strColumn."'" : "");
+        if (count($pageData) < 1) {
+            return [];
+        }
 
-		$objArticles = $objDatabase->execute("SELECT * FROM tl_article WHERE pid IN(".implode(',', $arrPages).") AND " . $strWhere . " ORDER BY sorting");
+        // insert articles in placeholders in modules array
+        foreach ($pageData as $pageId => $sections) {
+            foreach ($sections as $column => $itemList) {
+                // replace article placeholders with articles
+                foreach ($itemList as $index => $item) {
+                    if ($item[0] == 'article_placeholder') {
+                        $arrArticles = $this->getArticles($pageId, $column);
+                        array_insert($pageData[$pageId][$column], $index, $arrArticles);
 
-		if($objArticles->numRows < 1)
-		{
-			return array();
-		}
+                        // delete placeholder
+                        $newIndex = $index + count($arrArticles);
+                        unset($pageData[$pageId][$column][$newIndex]);
+                    }
+                }
+            }
+        }
 
-		$arrReturn = array();
-		while($objArticles->next())
-		{
-			// fix 2: generate the whole article section. The inserttag only generates the content. 
-			#$strHtml = $this->replaceInsertTags('{{insert_article::'.$objArticles->id.'}}');
-			
-			$objRow = $objDatabase->prepare("SELECT * FROM tl_article WHERE id=?")->limit(1)->execute($objArticles->id);
-			
-			// handle teasers
-			if($objRow->showTeaser)
-			{
-				$objRow->multiMode = 1;
-			}
-			
-			// mimic module article
-			$tmp = new \ModuleArticle($objRow);
-			$strHtml = $tmp->generate(false);
-			
-			// handle empty articles
-			if(!strlen($strHtml))
-			{
-				// generate an empty article
-				$objArticleTpl = new \FrontendTemplate('mod_article');
-				$objArticleTpl->class = 'mod_article';
-				$objArticleTpl->elements = array();
-				$strHtml = $objArticleTpl->parse();
-			}
+        return $pageData;
+    }
 
-			$arrReturn[] = array
-			(
-				'id'   => $objArticles->id,
-				'pid'   => $objArticles->pid,
-				'col'  => $objArticles->inColumn,
-				'html'   => $strHtml,
-			);
-		}
 
-		return $arrReturn;
-	}
-	
-	
-	/**
-	 * Shortcut: Get subpages recursiv
-	 * @param integer
-	 * @return array
-	 */
-	public function getSubpages($pid)
-	{
-		return $this->getSubpagesRecursiv($pid);
-	}
-	
-	/**
-	 * Recursivley get all subpages of a given pages
-	 * @param array
-	 * @param string
-	 * @param integer
-	 * @param array
-	 * @return array
-	 */
-	protected function getSubpagesRecursiv($pid,$level=1,$arrReturn=array())
-	{
-		global $objPage;
-		$time = time();
-		$level++;
+    /**
+     * Shortcut to getPageData: returns just the data as array
+     *
+     * @param integer
+     *
+     * @return array
+     */
+    protected function getSinglePageData(int $intPage): array
+    {
+        $arrReturn = $this->getPageData([$intPage]);
+        return $arrReturn[$intPage];
+    }
 
-		$objDatabase = \Database::getInstance();
+    /**
+     * Render pages recursively and return contents as string
+     *
+     * @param int    $pid
+     * @param int    $level
+     * @param string $templateName
+     *
+     * @return string
+     */
+    public function generatePage(int $pid, int $level, string $templateName = 'opw_default'): string
+    {
+        global $objPage, $container;
 
-		$strWhereP1="p1.published=1 AND p1.opw_hide!=1 AND p1.type='regular' AND (p1.start='' OR p1.start<".$time.") AND (p1.stop='' OR p1.stop>".$time.")";
-		$strWhereP2="p2.published=1 AND p2.opw_hide!=1 AND p2.type='regular' AND (p2.start='' OR p2.start<".$time.") AND (p2.stop='' OR p2.stop>".$time.")";
+        /** @var Database $database */
+        $database = $container['database.connection'];
 
-		// fetch subpages
-		$objSubpages = $objDatabase->prepare("SELECT p1.*, (SELECT COUNT(*) FROM tl_page p2 WHERE p2.pid=p1.id AND ".$strWhereP2.") AS subpages FROM tl_page p1 WHERE p1.pid=? AND ".$strWhereP1." ORDER BY p1.sorting")
-										->execute($pid);
-			
-		if($objSubpages->numRows < 1)
-		{
-			return array();
-		}
-		
-		if($this->hardLimit && $this->showLevel > 0 && $level > $this->showLevel)
-		{
-			return array();
-		}
-		
-		// walk subpages
-		while($objSubpages->next())
-		{
-			// Skip hidden sitemap pages
-			if ($this instanceof ModuleSitemap && $objSubpages->sitemap == 'map_never')
-			{
-				continue;
-			}
-			
-			$this->arrPages[] = $objSubpages->id;
-			$this->getSubpagesRecursiv($objSubpages->id, $level);
-			
-		}
-		return $this->arrPages;
-	}
-	
+        $level++;
+        $subPages = PageModel::findPublishedSubpagesWithoutGuestsByPid($pid);
+
+        if (null === $subPages
+            || ($this->getHardLimit() && $this->getShowLevel() > 0 && $level > $this->getShowLevel())
+        ) {
+            return '';
+        }
+
+        $template = new FrontendTemplate($templateName);
+        $template->setData(['level' => 'level_' . $level]);
+        $items = [];
+        $count = 0;
+
+        // walk subpages
+        while ($subPages->next()) {
+            $subSubPages = '';
+
+            // do the same as the navigation here
+            if ($subPages->subpages > 0
+                && (!$this->getShowLevel()
+                    || $this->getShowLevel() >= $level
+                    || (!$this->getHardLimit()
+                        && ($objPage->id == $subPages->id
+                            || in_array(
+                                $objPage->id,
+                                $database->getChildRecords(
+                                    $subPages->id,
+                                    'tl_page'
+                                )
+                            ))))
+            ) {
+                $subSubPages = $this->generatePage($subPages->id, $level, $templateName);
+            }
+
+            $cssClass = ' page page_' . $count;
+            $cssClass .= (($subSubPages != '') ? ' subpage' : '') . ($subPages->protected ? ' protected' : '')
+                         . (($subPages->cssClass != '') ? ' ' . $subPages->cssClass : '');
+            $cssId = 'page' . $subPages->id;
+
+            $items[] = [
+                'id'       => $subPages->id,
+                'cssId'    => 'id="' . $cssId . '"',
+                'class'    => trim($cssClass),
+                'subpages' => $subSubPages,
+                'content'  => $this->getSinglePageData($subPages->id),
+                'row'      => $subPages->row()
+            ];
+
+            $count++;
+        }
+
+        if (empty($items)) {
+            return '';
+        }
+
+        // add class first and last
+        $last                  = count($items) - 1;
+        $items[0]['class']     = trim($items[0]['class'] . ' first');
+        $items[$last]['class'] = trim($items[$last]['class'] . ' last');
+
+        $template->entries = $items;
+
+        return $template->parse();
+    }
+
+
+    /**
+     * Get ids of parent records and return as array
+     *
+     * @param string
+     * @param integer
+     *
+     * @return array
+     */
+    protected function getParentRecords(string $table, int $id): array
+    {
+        $return = [];
+
+        do {
+            // Get the pid
+            $parent = Database::getInstance()
+                ->prepare("SELECT pid FROM {$table} WHERE id=?")
+                ->limit(1)
+                ->execute($id);
+
+            if ($parent->numRows < 1) {
+                break;
+            }
+
+            $id = $parent->pid;
+
+            // store id
+            $return[] = $id;
+
+        } while ($id);
+
+        return $return;
+    }
+
+    /**
+     * Get layout object
+     *
+     * @param int $pageId
+     *
+     * @return LayoutModel
+     * @throws \Exception
+     */
+    protected function getPageLayout(int $pageId): LayoutModel
+    {
+        global $objPage;
+
+        // fetch layout, either selected manually or by fallback (default layout)
+        /** @var LayoutModel|Model|Model\Collection $layout */
+        $layout = LayoutModel::findOneBy(
+            ['tl_layout.id=(SELECT layout FROM tl_page WHERE id=? AND includeLayout=1)'],
+            [$pageId]
+        );
+
+        // if neither one is available search parent pages for manually selected layouts
+        if (null === $layout) {
+            // get parent ids
+            $parentRecords = $this->getParentRecords('tl_page', $pageId);
+
+            $tmp = [];
+            foreach ($parentRecords as $id) {
+                if ($id > 0 && $id != $objPage->rootId) {
+                    $tmp[] = $id;
+                }
+            }
+            $parentRecords = $tmp;
+            unset($tmp);
+
+            // move on to next page
+            if (count($parentRecords)) {
+
+                // walk parents backwards to find an inherited layout
+                $parentRecords = array_reverse($parentRecords);
+
+                // fetch parent pages
+                $objParents = PageModel::findMultipleByIds($parentRecords);
+                if (null !== $objParents) {
+                    while ($objParents->next()) {
+                        $layout = LayoutModel::findOneBy(
+                            ['tl_layout.id=(SELECT layout FROM tl_page WHERE id=? AND includeLayout=1)'],
+                            [$objParents->id]
+                        );
+                        if (null === $layout) {
+                            // check next parent
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+
+
+        // try fallback if no layout is selected or inherited to this page
+        if (null === $layout) {
+            // no fallback in contao 3!!!
+            // fetch layout from root page, inherited in global page object
+            $layout = LayoutModel::findByPk($objPage->layout);
+
+            if (null === $layout) {
+                throw new \Exception('No layout selected for the OnePageWebsite pages or the reference page');
+            }
+        }
+
+        return $layout;
+    }
+
+
+    /**
+     * Get modules included in pages and return as array with page id as key
+     *
+     * @param array
+     *
+     * @return array
+     */
+    protected function getModulesInPageLayouts(array $pageIds): array
+    {
+        global $container;
+
+        if (!count($pageIds)) {
+            return [];
+        }
+
+        // database object
+        /** @var Database $database */
+        $database = $container['database.connection'];
+
+        // get Database Result object for all pages
+        $pages = PageModel::findMultipleByIds($pageIds);
+
+        if (null === $pages) {
+            return [];
+        }
+        $return = [];
+
+        // walk pages
+        while ($pages->next()) {
+            $layout = $this->getPageLayout($pages->id);
+
+            $index = $pages->id;
+            foreach (deserialize($layout->modules) as $module) {
+                $id  = $module['mod'];
+                $col = $module['col'];
+
+                // make sure no modules of type one-page-website will be registered
+                $objModule = $database->prepare("SELECT * FROM tl_module WHERE id=? AND type NOT IN(?)")
+                    ->limit(1)
+                    ->execute($id, implode(',', array_keys($GLOBALS['FE_MOD']['onepagewebsite'])));
+
+                if ($id == 0 || $objModule->numRows < 1) {
+                    // add a placeholder for articles
+                    $return[$index][$col][] = ['article_placeholder', $col];
+                    continue;
+                }
+
+                $html                   = Controller::getFrontendModule($id);
+                $return[$index][$col][] = [
+                    'id'     => $id,
+                    'col'    => $col,
+                    'page'   => $pages->id,
+                    'layout' => $layout->id,
+                    'html'   => $html,
+                    'row'    => $objModule->row(),
+                ];
+
+            }
+        }
+
+        return $return;
+    }
+
+
+    /**
+     * Get articles on pages and return as array with page id as key
+     *
+     * @param        array
+     *
+     * @param string $column
+     *
+     * @return array
+     */
+    public function getArticles(int $page, string $column = ''): array
+    {
+        $articles = ArticleModel::findPublishedByPidAndColumn($page, $column);
+
+        if (null === $articles) {
+            return [];
+        }
+
+        $return = [];
+        while ($articles->next()) {
+            /** @var ArticleModel|Model $article */
+            $article = $articles->current();
+            // handle teasers
+            if ($article->showTeaser) {
+                $article->multiMode = 1;
+            }
+
+            // mimic module article
+            $tmp  = new ModuleArticle($article);
+            $html = $tmp->generate(false);
+
+            // handle empty articles
+            if (!strlen($html)) {
+                // generate an empty article
+                $articleTemplate = new FrontendTemplate('mod_article');
+                $articleTemplate->setData(['class' => 'mod_article', 'elements' => []]);
+                $html = $articleTemplate->parse();
+            }
+
+            $return[] = [
+                'id'   => $articles->id,
+                'pid'  => $articles->pid,
+                'col'  => $articles->inColumn,
+                'html' => $html,
+            ];
+        }
+
+        return $return;
+    }
+
+
+    /**
+     * Shortcut: Get subpages recursiv
+     *
+     * @param integer
+     *
+     * @return array
+     */
+    public function getSubPages(int $pid): array
+    {
+        return $this->getSubPagesRecursive($pid);
+    }
+
+    /**
+     * Recursivley get all subpages of a given pages
+     *
+     * @param int   $pid
+     * @param int   $level
+     * @param array $return
+     *
+     * @return array
+     */
+    protected function getSubPagesRecursive(int $pid, int $level = 1, array $return = []): array
+    {
+        $level++;
+        $subPages = PageModel::findPublishedSubpagesWithoutGuestsByPid($pid);
+
+        if (null === $subPages) {
+            return [];
+        }
+
+        if ($this->getHardLimit() && $this->getShowLevel() > 0 && $level > $this->getShowLevel()) {
+            return [];
+        }
+
+        // walk subpages
+        while ($subPages->next()) {
+            $this->pages[] = $subPages->id;
+            $this->getSubPagesRecursive($subPages->id, $level);
+        }
+
+        return $this->pages;
+    }
+
+    /**
+     * @param mixed $hardLimit
+     *
+     * @return self
+     */
+    public function setHardLimit(bool $hardLimit): self
+    {
+        $this->hardLimit = $hardLimit;
+        return $this;
+    }
+
+    /**
+     * @param mixed $showLevel
+     *
+     * @return self
+     */
+    public function setShowLevel(bool $showLevel): self
+    {
+        $this->showLevel = $showLevel;
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function getHardLimit(): bool
+    {
+        return $this->hardLimit;
+    }
+
+    /**
+     * @return bool
+     */
+    public function getShowLevel(): bool
+    {
+        return $this->showLevel;
+    }
+
 }

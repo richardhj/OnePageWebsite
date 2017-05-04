@@ -22,9 +22,10 @@
     "source": "https://github.com/timgatzky/OnePageWebsite"
   },
   "require": {
-    "php": "^5.3 || ^7.0",
+    "php": "^7.0",
     "contao/core": "^3.0",
-    "contao-community-alliance/composer-installer": "*"
+    "contao-community-alliance/composer-installer": "*",
+    "contao-community-alliance/dependency-container": "^1.8"
   },
   "extra": {
     "contao": {

@@ -68,7 +68,7 @@ class OnePageWebsiteNavigation extends ModuleNavigation
         /** @var ModuleModel|Model $module */
         $module = ModuleModel::findOneBy('id', $this->rootModule);
 
-        if ($module->numRows < 1) {
+        if (null === $module) {
             return '';
         }
 
@@ -92,37 +92,24 @@ class OnePageWebsiteNavigation extends ModuleNavigation
     /**
      * Recursively compile the navigation menu and return it as HTML string
      *
-     * @param integer
-     * @param integer
+     * @param int  $pid
+     * @param int  $level
+     * @param string $host
+     * @param string $language
      *
-     * @return string
+     * @return string Taken and modified from Modules.php
      * Taken and modified from Modules.php
+     *
      */
     protected function renderNavigation($pid, $level = 1, $host = null, $language = null)
     {
-        global $container;
-
-        $time = time();
+        global $objPage, $container;
 
         // Get all active subpages
-        $subPages = Database::getInstance()
-            ->prepare(
-                "SELECT p1.*, (SELECT COUNT(*) FROM tl_page p2 WHERE p2.pid=p1.id AND p2.type!='root' AND p2.type!='error_403' AND p2.type!='error_404'"
-                . (!$this->showHidden ? (($this instanceof
-                                          ModuleSitemap) ? " AND (p2.hide!=1 OR sitemap='map_always')" : " AND p2.hide!=1 AND p2.opw_hide!=1 ") : "")
-                . ((FE_USER_LOGGED_IN && !BE_USER_LOGGED_IN) ? " AND p2.guests!=1" : "")
-                . (!BE_USER_LOGGED_IN ? " AND (p2.start='' OR p2.start<" . $time . ") AND (p2.stop='' OR p2.stop>"
-                                        . $time . ") AND p2.published=1" : "")
-                . ") AS subpages FROM tl_page p1 WHERE p1.pid=? AND p1.type!='root' AND p1.type!='error_403' AND p1.type!='error_404'"
-                . (!$this->showHidden ? (($this instanceof
-                                          ModuleSitemap) ? " AND (p1.hide!=1 OR sitemap='map_always')" : " AND p1.hide!=1 AND p1.opw_hide!=1") : "")
-                . ((FE_USER_LOGGED_IN && !BE_USER_LOGGED_IN) ? " AND p1.guests!=1" : "")
-                . (!BE_USER_LOGGED_IN ? " AND (p1.start='' OR p1.start<" . $time . ") AND (p1.stop='' OR p1.stop>"
-                                        . $time . ") AND p1.published=1" : "") . " ORDER BY p1.sorting"
-            )
-            ->execute($pid);
+        $subPages = \PageModel::findPublishedSubpagesWithoutGuestsByPid($pid, $this->showHidden, $this instanceof \ModuleSitemap);
 
-        if ($subPages->numRows < 1) {
+        if (null === $subPages)
+        {
             return '';
         }
 
@@ -143,11 +130,11 @@ class OnePageWebsiteNavigation extends ModuleNavigation
 
         $template = new FrontendTemplate($this->navigationTpl);
 
+        $template->pid = $pid;
         $template->type  = get_class($this);
+        $template->cssID = $this->cssID; // see #4897
         $template->level = 'level_' . $level++;
 
-        // Get page objects
-        global $objPage;
 
         // jumpTo page
         /** @var PageModel|Model $jumpTo */
@@ -179,7 +166,7 @@ class OnePageWebsiteNavigation extends ModuleNavigation
                             && ($objPage->id == $subPages->id
                                 || in_array(
                                     $objPage->id,
-                                    $this->getChildRecords(
+                                    Database::getInstance()->getChildRecords(
                                         $subPages->id,
                                         'tl_page'
                                     )

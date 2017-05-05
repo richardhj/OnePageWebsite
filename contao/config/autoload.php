@@ -17,8 +17,8 @@
  */
 TemplateLoader::addFiles(array
 (
-	'mod_onepage'         				=> 'system/modules/OnePageWebsite/templates',
-	'moo_smoothScroll' 					=> 'system/modules/OnePageWebsite/templates',
-	'opw_default'     					=> 'system/modules/OnePageWebsite/templates',
-	'moo_onepagewebsitenavigation' 		=> 'system/modules/OnePageWebsite/templates',
+	'mod_onepage'         				=> 'system/modules/onepagewebsite/templates',
+	'moo_smoothScroll' 					=> 'system/modules/onepagewebsite/templates',
+	'opw_default'     					=> 'system/modules/onepagewebsite/templates',
+	'moo_onepagewebsitenavigation' 		=> 'system/modules/onepagewebsite/templates',
 ));

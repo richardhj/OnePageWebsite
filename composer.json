@@ -27,10 +27,17 @@
     "contao-community-alliance/composer-installer": "*",
     "contao-community-alliance/dependency-container": "^1.8"
   },
+  "autoload": {
+    "psr-0": {
+      "OnePageWebsite\\": [
+        "src/"
+      ]
+    }
+  },
   "extra": {
     "contao": {
       "sources": {
-        "system/modules/onepagewebsite": "system/modules/onepagewebsite"
+        "contao": "system/modules/onepagewebsite"
       }
     }
   }

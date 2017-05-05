@@ -15,14 +15,16 @@
 /**
  * Namespaces
  */
-namespace OnePageWebsite;
+namespace OnePageWebsite\Module;
 
 use Contao\BackendTemplate;
+use Contao\Module;
+use OnePageWebsite\OnePageWebsite;
 
 /**
  * Classes
  */
-class ModuleOnePageWebsiteCustom extends \Module
+class OnePageWebsiteCustom extends Module
 {
     /**
      * @var

@@ -29,8 +29,8 @@ ClassLoader::addClasses(array
 	'OnePageWebsite\OnePageWebsite'						=> 'system/modules/OnePageWebsite/classes/OnePageWebsite.php',
 
 	// Modules
-	'OnePageWebsite\ModuleOnePageWebsiteCustom'        	=> 'system/modules/OnePageWebsite/modules/ModuleOnePageWebsiteCustom.php',
-	'OnePageWebsite\ModuleOnePageWebsiteNavigation' 	=> 'system/modules/OnePageWebsite/modules/ModuleOnePageWebsiteNavigation.php',
+	'OnePageWebsite\ModuleOnePageWebsiteCustom'        	=> 'system/modules/OnePageWebsite/modules/OnePageWebsiteCustom.php',
+	'OnePageWebsite\ModuleOnePageWebsiteNavigation' 	=> 'system/modules/OnePageWebsite/modules/OnePageWebsiteNavigation
 	'OnePageWebsite\ModuleOnePageWebsiteRegular'    	=> 'system/modules/OnePageWebsite/modules/ModuleOnePageWebsiteRegular.php',
 ));
 

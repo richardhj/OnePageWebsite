@@ -15,20 +15,21 @@
 /**
  * Namespaces
  */
-namespace OnePageWebsite;
+namespace OnePageWebsite\Module;
 
 use Contao\Database;
 use Contao\FrontendTemplate;
 use Contao\FrontendUser;
 use Contao\Model;
 use Contao\ModuleModel;
+use Contao\ModuleNavigation;
 use Contao\ModuleSitemap;
 use Contao\PageModel;
 
 /**
  * Classes
  */
-class ModuleOnePageWebsiteNavigation extends \ModuleNavigation
+class OnePageWebsiteNavigation extends ModuleNavigation
 {
     /**
      * Display a wildcard in the back end

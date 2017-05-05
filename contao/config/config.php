@@ -13,7 +13,7 @@
  */
 
 $GLOBALS['FE_MOD']['onepagewebsite'] = [
-    'onepagewebsiteregular'    => 'ModuleOnePageWebsiteRegular',
-    'onepagewebsitecustom'     => 'ModuleOnePageWebsiteCustom',
-    'onepagewebsitenavigation' => 'ModuleOnePageWebsiteNavigation',
+    'onepagewebsiteregular'    => 'OnePageWebsite\Module\OnePageWebsiteRegular',
+    'onepagewebsitecustom'     => 'OnePageWebsite\Module\OnePageWebsiteCustom',
+    'onepagewebsitenavigation' => 'OnePageWebsite\Module\OnePageWebsiteNavigation',
 ];

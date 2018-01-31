@@ -23,8 +23,8 @@
   },
   "require": {
     "php": "^7.0",
-    "contao/core": "^3.0",
-    "contao-community-alliance/composer-installer": "*",
+    "contao/core-bundle": "^3.0 || ^4.4",
+    "contao-community-alliance/composer-plugin": "~2.0 || ~3.0",
     "contao-community-alliance/dependency-container": "^1.8"
   },
   "autoload": {
